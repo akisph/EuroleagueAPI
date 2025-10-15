@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Euroleague PlaybyPlay Schema",
+  "description": "JSON Schema for Euroleague play-by-play data - Generated from sample data analysis",
+  "type": "object",
+  "required": [
+    "FirstQuarter",
+    "SecondQuarter",
+    "ThirdQuarter",
+    "FourthQuarter"
+  ],
+  "properties": {
+    "FirstQuarter": {
+      "type": "array",
+      "description": "Plays from the first quarter",
+      "items": {
+        "$ref": "#/definitions/PlayAction"
+      }
+    },
+    "SecondQuarter": {
+      "type": "array",
+      "description": "Plays from the second quarter",
+      "items": {
+        "$ref": "#/definitions/PlayAction"
+      }
+    },
+    "ThirdQuarter": {
+      "type": "array",
+      "description": "Plays from the third quarter",
+      "items": {
+        "$ref": "#/definitions/PlayAction"
+      }
+    },
+    "FourthQuarter": {
+      "type": "array",
+      "description": "Plays from the fourth quarter",
+      "items": {
+        "$ref": "#/definitions/PlayAction"
+      }
+    },
+    "ExtraTime": {
+      "type": "array",
+      "description": "Plays from overtime (if exists)",
+      "items": {
+        "$ref": "#/definitions/PlayAction"
+      }
+    }
+  },
+  "definitions": {
+    "PlayAction": {
+      "type": "object",
+      "description": "Μια φάση στο παιχνίδι",
+      "required": [
+        "NUMBEROFPLAY",
+        "CODETEAM",
+        "PLAYTYPE"
+      ],
+      "properties": {
+        "NUMBEROFPLAY": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Αριθμός φάσης"
+        },
+        "CODETEAM": {
+          "type": "string",
+          "description": "Κωδικός ομάδας"
+        },
+        "PLAYTYPE": {
+          "type": "string",
+          "enum": [
+            "BP",
+            "JB",
+            "3FGA",
+            "D",
+            "TO",
+            "ST",
+            "2FGM",
+            "AS",
+            "2FGA",
+            "O",
+            "CM",
+            "RV",
+            "FTM",
+            "FTA",
+            "3FGM",
+            "OUT",
+            "IN",
+            "OF",
+            "TOUT_TV",
+            "EP",
+            "TOUT",
+            "CCH",
+            "AG",
+            "FV",
+            "C",
+            "CMT",
+            "CMU",
+            "O         ",
+            "TO        ",
+            "B",
+            "AS        "
+          ],
+          "description": "Τύπος φάσης"
+        },
+        "TEAM": {
+          "type": "string",
+          "description": "Όνομα ομάδας"
+        },
+        "PLAYER": {
+          "type": "string",
+          "description": "Όνομα παίκτη"
+        },
+        "PLAYER_ID": {
+          "type": "string",
+          "pattern": "^P\\d{6}\\s*$",
+          "description": "ID παίκτη"
+        },
+        "DORSAL": {
+          "type": "string",
+          "description": "Αριθμός φανέλας"
+        },
+        "MINUTE": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50,
+          "description": "Λεπτό παιχνιδιού"
+        },
+        "MARKERTIME": {
+          "type": "string",
+          "pattern": "^\\d{2}:\\d{2}$",
+          "description": "Χρόνος στο ρολόι (MM:SS)"
+        },
+        "SCORE": {
+          "type": "string",
+          "pattern": "^\\d+-\\d+$",
+          "description": "Σκορ τη στιγμή της φάσης"
+        },
+        "SCOREA": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Πόντοι ομάδας Α"
+        },
+        "SCOREB": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Πόντοι ομάδας Β"
+        },
+        "COMMENT": {
+          "type": "string",
+          "description": "Περιγραφή φάσης"
+        }
+      }
+    }
+  }
+}
