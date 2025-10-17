@@ -1,7 +1,7 @@
 services:
   # PostgreSQL Database
   db:
-    image: postgres
+    image: postgres:15
     container_name: euroleague_postgres
     restart: unless-stopped
     environment:
@@ -26,12 +26,12 @@ services:
       dockerfile: ./Dockerfile
     environment:
       - LOGGING=false
-      - POSTGRES_HOST=euroleague_postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DATABASE=db
-      - POSTGRES_SYNC=true
+      - DATABASE_HOST=euroleague_postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=user
+      - DATABASE_PASSWORD=password
+      - DATABASE_DATABASE=db
+      - DATABASE_SYNC=true
       - PORT=3002
       - TZ=Europe/Athens
     depends_on:
