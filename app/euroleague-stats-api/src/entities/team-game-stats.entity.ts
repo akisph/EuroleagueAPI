@@ -1,3 +1,10 @@
+// Table: team_game_stats
+// Purpose: Stores team-level aggregated statistics for a single game
+// (points, rebounds, assists, etc.). Each row represents a team's line for a
+// particular game and indicates whether the team was home or away.
+// Relationships:
+//  - Game (Many team stats rows belong to one Game)
+//  - Team (Many team stats rows belong to one Team)
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Game } from './game.entity';
 import { Team } from './team.entity';

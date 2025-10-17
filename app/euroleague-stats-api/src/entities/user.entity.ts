@@ -1,3 +1,7 @@
+// Table: users
+// Purpose: Stores application users for authentication/authorization. Contains
+// username, email, password hash, role and active flag. This table is
+// independent of the sporting domain model and used for API access control.
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
 
 @Entity('users')

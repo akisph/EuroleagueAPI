@@ -1,3 +1,9 @@
+// Table: players
+// Purpose: Stores player master data (code, name, position). Acts as the
+// canonical player record referenced by game-statistics and scoring events.
+// Relationships:
+//  - PlayerGameStats (One player -> many per-game stat rows)
+//  - ScoringEvent (One player -> many scoring events)
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
 import { PlayerGameStats } from './player-game-stats.entity';
 import { ScoringEvent } from './scoring-event.entity';

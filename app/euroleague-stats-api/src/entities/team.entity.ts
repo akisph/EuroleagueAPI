@@ -1,3 +1,11 @@
+// Table: teams
+// Purpose: Stores team master data (code, name, city, country). Teams are
+// referenced by games, player-team stats and scoring events.
+// Relationships:
+//  - Game (home and away references)
+//  - PlayerGameStats (One team -> many player-game stat rows)
+//  - TeamGameStats (One team -> many team-game stat rows)
+//  - ScoringEvent (One team -> many scoring events)
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
 import { Game } from './game.entity';
 import { PlayerGameStats } from './player-game-stats.entity';

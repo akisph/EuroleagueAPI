@@ -1,3 +1,11 @@
+// Table: player_game_stats
+// Purpose: Stores per-player statistics for a single game. Each row represents
+// a player's line for a particular game (minutes, points, rebounds, assists,
+// etc.). It links to the `games`, `players` and `teams` tables.
+// Relationships:
+//  - Game (Many PlayerGameStats belong to one Game)
+//  - Player (Many PlayerGameStats belong to one Player)
+//  - Team (Many PlayerGameStats belong to one Team)
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Game } from './game.entity';
 import { Player } from './player.entity';

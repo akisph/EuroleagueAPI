@@ -1,3 +1,13 @@
+// Table: games
+// Purpose: Stores one row per Euroleague game. Contains scheduling and result
+// data (date, status, scores) and foreign keys to the season and the two
+// participating teams (home and away). Related entities:
+//  - Season (Many games belong to one Season)
+//  - Team (Each game references a home and away Team)
+//  - PlayerGameStats (One-to-many: game -> player stats)
+//  - TeamGameStats (One-to-many: game -> team stats)
+//  - ScoringEvent (One-to-many: chronological scoring events in the game)
+// Notes: gm_code is a unique external code used to map source provider IDs.
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { Season } from './season.entity';
 import { Team } from './team.entity';

@@ -1,3 +1,6 @@
+// Entities index: central export file for all DB entity classes used by
+// TypeORM. Importing from this file provides a single place to register
+// entities with the ORM configuration.
 export { Season } from './season.entity';
 export { Team } from './team.entity';
 export { Player } from './player.entity';

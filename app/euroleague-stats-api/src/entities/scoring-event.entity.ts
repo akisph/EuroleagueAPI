@@ -1,3 +1,12 @@
+// Table: scoring_events
+// Purpose: Stores granular scoring events that happen during a game. Each
+// event links to the game, the team that scored and the player (when
+// available). Includes metadata like period, time remaining, points scored,
+// shot type and zone. Useful for play-by-play and analytics.
+// Relationships:
+//  - Game (Many events belong to one Game)
+//  - Team (Many events belong to one Team)
+//  - Player (Many events belong to one Player)
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Game } from './game.entity';
 import { Team } from './team.entity';
