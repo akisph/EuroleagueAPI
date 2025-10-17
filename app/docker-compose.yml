@@ -1,69 +1,51 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
+  db:
+    image: postgres
     container_name: euroleague_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: db
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=db
     ports:
       - "5432:5432"
+    expose:
+      - '5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
     networks:
       - euroleague-network
 
   # Euroleague Stats API
   euroleague-api:
+    container_name: euroleague_api
+    restart: always
     build:
       context: ./euroleague-stats-api
-      dockerfile: Dockerfile
-    container_name: euroleague_api
-    restart: unless-stopped
+      dockerfile: ./Dockerfile
     environment:
-      DATABASE_HOST: postgres
-      DATABASE_PORT: 5432
-      DATABASE_USERNAME: user
-      DATABASE_PASSWORD: password
-      DATABASE_DATABASE: db
-      DATABASE_SYNC: true
-      PORT: 3002
-      LOGGING: false
-    ports:
-      - "3002:3002"
+      - LOGGING=false
+      - POSTGRES_HOST=euroleague_postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DATABASE=db
+      - POSTGRES_SYNC=true
+      - PORT=3002
+      - TZ=Europe/Athens
     depends_on:
-      - postgres
-    volumes:
-      - ./euroleague-stats-api:/app
-      - /app/node_modules
+      - db
+    ports:
+      - '3000:3000'
+      - '3002:3002'
+      - '3003:3003'
     networks:
       - euroleague-network
-    command: npm run start:dev
 
-  # pgAdmin (optional - for database management)
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: euroleague_pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@euroleague.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    ports:
-      - "5050:80"
-    depends_on:
-      - postgres
-    networks:
-      - euroleague-network
 
 volumes:
   postgres_data:
-    driver: local
 
 networks:
   euroleague-network:
