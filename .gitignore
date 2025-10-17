@@ -1,0 +1,15 @@
+node_modules
+*/node_modules
+
+# local env files
+*/.env*.local
+
+# turbo repo generated file ignore
+.turbo
+
+tsconfig.tsbuildinfo
+
+dist
+.env
+pnpm-lock.yaml
+*/pnpm-lock.yaml
