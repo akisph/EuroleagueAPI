@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { SeedModule } from './modules/seed/seed.module';
+import { TeamsModule } from './modules/teams/teams.module';
 import { dbConfig } from './database';
 
 //iof not use proccess env doesnt defined
@@ -17,6 +18,7 @@ const dbModule = TypeOrmModule.forRoot(dbConfig);
     }),
     dbModule,
     SeedModule,
+    TeamsModule,
   ],
   controllers: [],
   providers: [],
