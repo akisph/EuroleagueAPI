@@ -34,6 +34,9 @@ export class TeamStatsDto {
   awayGames: number;
   wins: number;
   losses: number;
+  pointsScored: number;
+  pointsAllowed: number;
+  pointDifferential: number;
   games: GameStatsDto[];
 }
 
