@@ -178,6 +178,16 @@ export class SeedService {
   }
 
   private async processGameData(gameCode: number, seasonCode: string, season: Season, boxscoreData: any) {
+    // Check if game already exists to prevent duplicates
+    const existingGame = await this.gameRepository.findOne({
+      where: { gm_code: gameCode, gm_fk_ssn_id: season.ssn_id }
+    });
+    
+    if (existingGame) {
+      this.logger.debug(`📋 Game ${gameCode} already exists in season ${seasonCode}, skipping processing...`);
+      return;
+    }
+    
     // Extract teams from boxscore data
     const teamA = boxscoreData.Stats[0];
     const teamB = boxscoreData.Stats[1];
@@ -195,20 +205,36 @@ export class SeedService {
     const homeScore = finalQuarter.find(q => q.Team === teamA.Team)?.Quarter4 || 0;
     const awayScore = finalQuarter.find(q => q.Team === teamB.Team)?.Quarter4 || 0;
     
-    // Create game
-    const game = this.gameRepository.create({
-      gm_code: gameCode,
-      gm_fk_ssn_id: season.ssn_id,
-      gm_fk_home_tm_id: homeTeam.tm_id,
-      gm_fk_away_tm_id: awayTeam.tm_id,
-      gm_home_score: homeScore,
-      gm_away_score: awayScore,
-      gm_status: 'Completed',
-      gm_date: new Date() // You might want to extract actual date from API if available
-    });
-    
-    const savedGame = await this.gameRepository.save(game);
-    this.logger.log(`✅ Successfully processed game ${gameCode}: ${teamA.Team} vs ${teamB.Team}`);
+    // Create game with duplicate handling
+    let savedGame;
+    try {
+      const game = this.gameRepository.create({
+        gm_code: gameCode,
+        gm_fk_ssn_id: season.ssn_id,
+        gm_fk_home_tm_id: homeTeam.tm_id,
+        gm_fk_away_tm_id: awayTeam.tm_id,
+        gm_home_score: homeScore,
+        gm_away_score: awayScore,
+        gm_status: 'Completed',
+        gm_date: new Date() // You might want to extract actual date from API if available
+      });
+      
+      savedGame = await this.gameRepository.save(game);
+      this.logger.log(`✅ Successfully processed game ${gameCode}: ${teamA.Team} vs ${teamB.Team}`);
+    } catch (error) {
+      if (error.message.includes('duplicate key value violates unique constraint')) {
+        // Game was created by another process, fetch it
+        savedGame = await this.gameRepository.findOne({
+          where: { gm_code: gameCode, gm_fk_ssn_id: season.ssn_id }
+        });
+        if (!savedGame) {
+          throw new Error(`Failed to create or find game ${gameCode} for season ${seasonCode}`);
+        }
+        this.logger.debug(`🔄 Game ${gameCode} was created by another process, using existing record`);
+      } else {
+        throw error;
+      }
+    }
     
     // Process players and stats for both teams
     await this.processTeamStats(savedGame, homeTeam, teamA);
@@ -219,26 +245,41 @@ export class SeedService {
   }
 
   private async processTeamStats(game: Game, team: Team, teamData: any) {
-    // Create team game stats
-    const teamStats = this.teamGameStatsRepository.create({
-      tmgs_fk_gm_id: game.gm_id,
-      tmgs_fk_tm_id: team.tm_id,
-      tmgs_points: teamData.PlayersStats.reduce((sum, p) => sum + (p.Points || 0), 0),
-      tmgs_field_goals_made: teamData.PlayersStats.reduce((sum, p) => sum + (p.FieldGoalsMade2 || 0) + (p.FieldGoalsMade3 || 0), 0),
-      tmgs_field_goals_attempted: teamData.PlayersStats.reduce((sum, p) => sum + (p.FieldGoalsAttempted2 || 0) + (p.FieldGoalsAttempted3 || 0), 0),
-      tmgs_three_pointers_made: teamData.PlayersStats.reduce((sum, p) => sum + (p.FieldGoalsMade3 || 0), 0),
-      tmgs_three_pointers_attempted: teamData.PlayersStats.reduce((sum, p) => sum + (p.FieldGoalsAttempted3 || 0), 0),
-      tmgs_free_throws_made: teamData.PlayersStats.reduce((sum, p) => sum + (p.FreeThrowsMade || 0), 0),
-      tmgs_free_throws_attempted: teamData.PlayersStats.reduce((sum, p) => sum + (p.FreeThrowsAttempted || 0), 0),
-      tmgs_total_rebounds: teamData.PlayersStats.reduce((sum, p) => sum + (p.TotalRebounds || 0), 0),
-      tmgs_assists: teamData.PlayersStats.reduce((sum, p) => sum + (p.Assistances || 0), 0),
-      tmgs_steals: teamData.PlayersStats.reduce((sum, p) => sum + (p.Steals || 0), 0),
-      tmgs_blocks: teamData.PlayersStats.reduce((sum, p) => sum + (p.BlocksFavour || 0), 0),
-      tmgs_turnovers: teamData.PlayersStats.reduce((sum, p) => sum + (p.Turnovers || 0), 0),
-      tmgs_fouls: teamData.PlayersStats.reduce((sum, p) => sum + (p.FoulsCommited || 0), 0)
+    // Check if team stats already exist
+    const existingTeamStats = await this.teamGameStatsRepository.findOne({
+      where: { tmgs_fk_gm_id: game.gm_id, tmgs_fk_tm_id: team.tm_id }
     });
     
-    await this.teamGameStatsRepository.save(teamStats);
+    if (!existingTeamStats) {
+      try {
+        // Create team game stats
+        const teamStats = this.teamGameStatsRepository.create({
+          tmgs_fk_gm_id: game.gm_id,
+          tmgs_fk_tm_id: team.tm_id,
+          tmgs_points: teamData.PlayersStats.reduce((sum, p) => sum + (p.Points || 0), 0),
+          tmgs_field_goals_made: teamData.PlayersStats.reduce((sum, p) => sum + (p.FieldGoalsMade2 || 0) + (p.FieldGoalsMade3 || 0), 0),
+          tmgs_field_goals_attempted: teamData.PlayersStats.reduce((sum, p) => sum + (p.FieldGoalsAttempted2 || 0) + (p.FieldGoalsAttempted3 || 0), 0),
+          tmgs_three_pointers_made: teamData.PlayersStats.reduce((sum, p) => sum + (p.FieldGoalsMade3 || 0), 0),
+          tmgs_three_pointers_attempted: teamData.PlayersStats.reduce((sum, p) => sum + (p.FieldGoalsAttempted3 || 0), 0),
+          tmgs_free_throws_made: teamData.PlayersStats.reduce((sum, p) => sum + (p.FreeThrowsMade || 0), 0),
+          tmgs_free_throws_attempted: teamData.PlayersStats.reduce((sum, p) => sum + (p.FreeThrowsAttempted || 0), 0),
+          tmgs_total_rebounds: teamData.PlayersStats.reduce((sum, p) => sum + (p.TotalRebounds || 0), 0),
+          tmgs_assists: teamData.PlayersStats.reduce((sum, p) => sum + (p.Assistances || 0), 0),
+          tmgs_steals: teamData.PlayersStats.reduce((sum, p) => sum + (p.Steals || 0), 0),
+          tmgs_blocks: teamData.PlayersStats.reduce((sum, p) => sum + (p.BlocksFavour || 0), 0),
+          tmgs_turnovers: teamData.PlayersStats.reduce((sum, p) => sum + (p.Turnovers || 0), 0),
+          tmgs_fouls: teamData.PlayersStats.reduce((sum, p) => sum + (p.FoulsCommited || 0), 0)
+        });
+        
+        await this.teamGameStatsRepository.save(teamStats);
+      } catch (error) {
+        if (error.message.includes('duplicate key value violates unique constraint')) {
+          this.logger.debug(`🔄 Team stats for game ${game.gm_code} and team ${team.tm_code} already exist, skipping...`);
+        } else {
+          throw error;
+        }
+      }
+    }
     
     // Process individual player stats
     for (const playerData of teamData.PlayersStats) {
@@ -258,28 +299,47 @@ export class SeedService {
       lastName
     );
     
-    // Create player game stats
-    const playerStats = this.playerGameStatsRepository.create({
-      pgs_fk_gm_id: game.gm_id,
-      pgs_fk_plr_id: player.plr_id,
-      pgs_fk_tm_id: team.tm_id,
-      pgs_minutes_played: playerData.Minutes,
-      pgs_points: playerData.Points || 0,
-      pgs_field_goals_made: (playerData.FieldGoalsMade2 || 0) + (playerData.FieldGoalsMade3 || 0),
-      pgs_field_goals_attempted: (playerData.FieldGoalsAttempted2 || 0) + (playerData.FieldGoalsAttempted3 || 0),
-      pgs_three_pointers_made: playerData.FieldGoalsMade3 || 0,
-      pgs_three_pointers_attempted: playerData.FieldGoalsAttempted3 || 0,
-      pgs_free_throws_made: playerData.FreeThrowsMade || 0,
-      pgs_free_throws_attempted: playerData.FreeThrowsAttempted || 0,
-      pgs_total_rebounds: playerData.TotalRebounds || 0,
-      pgs_assists: playerData.Assistances || 0,
-      pgs_steals: playerData.Steals || 0,
-      pgs_blocks: playerData.BlocksFavour || 0,
-      pgs_turnovers: playerData.Turnovers || 0,
-      pgs_fouls: playerData.FoulsCommited || 0
+    // Check if player stats already exist
+    const existingPlayerStats = await this.playerGameStatsRepository.findOne({
+      where: { 
+        pgs_fk_gm_id: game.gm_id, 
+        pgs_fk_plr_id: player.plr_id, 
+        pgs_fk_tm_id: team.tm_id 
+      }
     });
     
-    await this.playerGameStatsRepository.save(playerStats);
+    if (!existingPlayerStats) {
+      try {
+        // Create player game stats
+        const playerStats = this.playerGameStatsRepository.create({
+          pgs_fk_gm_id: game.gm_id,
+          pgs_fk_plr_id: player.plr_id,
+          pgs_fk_tm_id: team.tm_id,
+          pgs_minutes_played: playerData.Minutes,
+          pgs_points: playerData.Points || 0,
+          pgs_field_goals_made: (playerData.FieldGoalsMade2 || 0) + (playerData.FieldGoalsMade3 || 0),
+          pgs_field_goals_attempted: (playerData.FieldGoalsAttempted2 || 0) + (playerData.FieldGoalsAttempted3 || 0),
+          pgs_three_pointers_made: playerData.FieldGoalsMade3 || 0,
+          pgs_three_pointers_attempted: playerData.FieldGoalsAttempted3 || 0,
+          pgs_free_throws_made: playerData.FreeThrowsMade || 0,
+          pgs_free_throws_attempted: playerData.FreeThrowsAttempted || 0,
+          pgs_total_rebounds: playerData.TotalRebounds || 0,
+          pgs_assists: playerData.Assistances || 0,
+          pgs_steals: playerData.Steals || 0,
+          pgs_blocks: playerData.BlocksFavour || 0,
+          pgs_turnovers: playerData.Turnovers || 0,
+          pgs_fouls: playerData.FoulsCommited || 0
+        });
+        
+        await this.playerGameStatsRepository.save(playerStats);
+      } catch (error) {
+        if (error.message.includes('duplicate key value violates unique constraint')) {
+          this.logger.debug(`🔄 Player stats for game ${game.gm_code}, player ${player.plr_code} already exist, skipping...`);
+        } else {
+          throw error;
+        }
+      }
+    }
   }
 
   private async processPointsData(game: Game, gameCode: number, seasonCode: string) {
@@ -301,17 +361,25 @@ export class SeedService {
       });
       
       if (player && team) {
-        const scoringEvent = this.scoringEventRepository.create({
-          sc_fk_gm_id: game.gm_id,
-          sc_fk_plr_id: player.plr_id,
-          sc_fk_tm_id: team.tm_id,
-          sc_shot_type: pointEvent.ID_ACTION,
-          sc_points_scored: pointEvent.POINTS || 0,
-          sc_period: pointEvent.MINUTE || 0,
-          sc_is_made: pointEvent.POINTS > 0
-        });
-        
-        await this.scoringEventRepository.save(scoringEvent);
+        try {
+          const scoringEvent = this.scoringEventRepository.create({
+            sc_fk_gm_id: game.gm_id,
+            sc_fk_plr_id: player.plr_id,
+            sc_fk_tm_id: team.tm_id,
+            sc_shot_type: pointEvent.ID_ACTION,
+            sc_points_scored: pointEvent.POINTS || 0,
+            sc_period: pointEvent.MINUTE || 0,
+            sc_is_made: pointEvent.POINTS > 0
+          });
+          
+          await this.scoringEventRepository.save(scoringEvent);
+        } catch (error) {
+          if (error.message.includes('duplicate key value violates unique constraint')) {
+            this.logger.debug(`🔄 Scoring event for game ${game.gm_code}, player ${player.plr_code} already exists, skipping...`);
+          } else {
+            this.logger.warn(`⚠️ Failed to save scoring event for game ${gameCode}: ${error.message}`);
+          }
+        }
       }
     }
   }
@@ -322,12 +390,27 @@ export class SeedService {
     });
     
     if (!team) {
-      team = this.teamRepository.create({
-        tm_code: teamCode,
-        tm_name: teamName
-      });
-      team = await this.teamRepository.save(team);
-      this.logger.log(`✅ Created team: ${teamName}`);
+      try {
+        team = this.teamRepository.create({
+          tm_code: teamCode,
+          tm_name: teamName
+        });
+        team = await this.teamRepository.save(team);
+        this.logger.log(`✅ Created team: ${teamName}`);
+      } catch (error) {
+        // Handle race condition - another process might have created the team
+        if (error.message.includes('duplicate key value violates unique constraint')) {
+          this.logger.debug(`🔄 Team ${teamCode} was created by another process, fetching...`);
+          team = await this.teamRepository.findOne({
+            where: { tm_code: teamCode }
+          });
+          if (!team) {
+            throw new Error(`Failed to create or find team with code: ${teamCode}`);
+          }
+        } else {
+          throw error;
+        }
+      }
     }
     
     return team;
@@ -339,13 +422,28 @@ export class SeedService {
     });
     
     if (!player) {
-      player = this.playerRepository.create({
-        plr_code: playerCode,
-        plr_first_name: firstName,
-        plr_last_name: lastName
-      });
-      player = await this.playerRepository.save(player);
-      this.logger.log(`✅ Created player: ${firstName} ${lastName}`);
+      try {
+        player = this.playerRepository.create({
+          plr_code: playerCode,
+          plr_first_name: firstName,
+          plr_last_name: lastName
+        });
+        player = await this.playerRepository.save(player);
+        this.logger.log(`✅ Created player: ${firstName} ${lastName}`);
+      } catch (error) {
+        // Handle race condition - another process might have created the player
+        if (error.message.includes('duplicate key value violates unique constraint')) {
+          this.logger.debug(`🔄 Player ${playerCode} was created by another process, fetching...`);
+          player = await this.playerRepository.findOne({
+            where: { plr_code: playerCode }
+          });
+          if (!player) {
+            throw new Error(`Failed to create or find player with code: ${playerCode}`);
+          }
+        } else {
+          throw error;
+        }
+      }
     }
     
     return player;
@@ -478,13 +576,15 @@ export class SeedService {
       .getOne();
     
     let startingGameCode = lastGame ? lastGame.gm_code + 1 : 1;
-    let consecutiveFailures = 0;
-    const maxConsecutiveFailures = 10;
+    let consecutiveFetchFailures = 0;
+    let consecutiveProcessFailures = 0;
+    const maxConsecutiveFetchFailures = 3;
+    const maxConsecutiveProcessFailures = 3;
     let newGamesFound = 0;
     
     this.logger.log(`🎯 Starting search from game ${startingGameCode} for season ${season.ssn_code}`);
     
-    while (consecutiveFailures < maxConsecutiveFailures) {
+    while (consecutiveFetchFailures < maxConsecutiveFetchFailures && consecutiveProcessFailures < maxConsecutiveProcessFailures) {
       const gameCode = startingGameCode;
       
       // Check if this game already exists (shouldn't happen but safety check)
@@ -495,7 +595,8 @@ export class SeedService {
       if (existingGame) {
         this.logger.debug(`📋 Game ${gameCode} already exists, skipping...`);
         startingGameCode++;
-        consecutiveFailures = 0;
+        consecutiveFetchFailures = 0;
+        consecutiveProcessFailures = 0;
         continue;
       }
       
@@ -504,26 +605,41 @@ export class SeedService {
       
       if (!boxscoreResponse.success) {
         this.logger.debug(`❌ No new game found at ${gameCode}: ${boxscoreResponse.error}`);
-        consecutiveFailures++;
+        consecutiveFetchFailures++;
         startingGameCode++;
         continue;
       }
       
-      // Found a new game! Process it
-      consecutiveFailures = 0;
-      newGamesFound++;
+      // Found a new game! Reset fetch failure counter
+      consecutiveFetchFailures = 0;
       
       try {
         await this.processGameData(gameCode, season.ssn_code, season, boxscoreResponse.data);
         this.logger.log(`🆕 Added new game ${gameCode} to season ${season.ssn_code}`);
+        newGamesFound++;
+        consecutiveProcessFailures = 0; // Reset process failure counter on success
       } catch (error) {
         this.logger.error(`❌ Error processing new game ${gameCode}:`, error.message);
+        consecutiveProcessFailures++;
+        
+        // Check if it's a duplicate key error - if so, skip this game and continue
+        if (error.message.includes('duplicate key value violates unique constraint')) {
+          this.logger.warn(`⚠️ Duplicate constraint violation for game ${gameCode}, skipping...`);
+          consecutiveProcessFailures = 0; // Don't count duplicates as processing failures
+        } else if (consecutiveProcessFailures >= maxConsecutiveProcessFailures) {
+          this.logger.error(`🛑 Stopping update for season ${season.ssn_code} after ${maxConsecutiveProcessFailures} consecutive processing failures`);
+          break;
+        }
       }
       
       startingGameCode++;
       
       // Add delay between requests
       await this.delay(this.DELAY_BETWEEN_REQUESTS);
+    }
+    
+    if (consecutiveFetchFailures >= maxConsecutiveFetchFailures) {
+      this.logger.log(`🛑 Stopped searching after ${maxConsecutiveFetchFailures} consecutive fetch failures for season ${season.ssn_code}`);
     }
     
     if (newGamesFound > 0) {
